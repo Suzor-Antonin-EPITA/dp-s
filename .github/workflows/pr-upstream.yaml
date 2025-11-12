@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout fork repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git
         run: |
@@ -22,7 +25,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/theo-henon/demperm-social.git
           git fetch upstream main
-          git checkout main
+          git checkout origin/main
           git merge upstream/main --allow-unrelated-histories -m "Sync fork with upstream"
           git push origin main
 
@@ -35,11 +38,9 @@ jobs:
         run: |
           TAG_NAME="${GITHUB_REF##*/}"
           BRANCH_NAME="release-${TAG_NAME}"
-
           # Create a new branch locally
           git checkout main
           git checkout -b $BRANCH_NAME
-
           # Force push to upstream fork branch
           git push https://x-access-token:${GH_TOKEN}@github.com/theo-henon/demperm-social.git $BRANCH_NAME
 
