@@ -27,7 +27,7 @@ jobs:
           git fetch upstream main
           git checkout origin/main
           git merge upstream/main --allow-unrelated-histories -m "Sync fork with upstream"
-          git push origin main
+          git push origin main || true
 
       - name: Run tests
         run: echo "This is a placeholder"
