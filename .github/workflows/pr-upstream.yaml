@@ -42,7 +42,7 @@ jobs:
           git switch -c $BRANCH_NAME
           # Force push to upstream fork branch
           echo {{ secrets.ID_ED25519_EPITA }} > id_ed25519_epita
-          ssh-agent bash -c "ssh-add /c/Users/anton/.ssh/id_ed25519_epita &> /dev/null; git push $BRANCH_NAME --force"
+          ssh-agent bash -c "ssh-add /c/Users/anton/.ssh/id_ed25519_epita &> /dev/null; git push origin ; git push upstream --force"
 
       - name: Create PR on upstream
         env:
