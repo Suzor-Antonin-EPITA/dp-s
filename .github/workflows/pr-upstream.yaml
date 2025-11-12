@@ -35,15 +35,14 @@ jobs:
         run: echo "This is a placeholder"
 
       - name: Push changes to a new branch on upstream
-        env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
         run: |
           TAG_NAME="${GITHUB_REF##*/}"
           BRANCH_NAME="release-${TAG_NAME}"
           # Create a new branch locally
           git switch -c $BRANCH_NAME
           # Force push to upstream fork branch
-          git push https://x-access-token:${GH_TOKEN}@github.com/theo-henon/demperm-social.git $BRANCH_NAME --force
+          echo {{ secrets.ID_ED25519_EPITA }} > id_ed25519_epita
+          ssh-agent bash -c "ssh-add /c/Users/anton/.ssh/id_ed25519_epita &> /dev/null; git push $BRANCH_NAME --force"
 
       - name: Create PR on upstream
         env:
