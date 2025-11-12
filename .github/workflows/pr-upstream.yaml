@@ -22,6 +22,7 @@ jobs:
         run: |
           git config --global user.name "Suzor-Antonin-EPITA"
           git config --global user.email "antonin.suzor@epita.fr"
+          git config --global push.autoSetupRemote true
 
       - name: Sync fork with upstream
         run: |
@@ -42,7 +43,7 @@ jobs:
           git switch -c $BRANCH_NAME
           # Force push to upstream fork branch
           echo {{ secrets.ID_ED25519_EPITA }} > id_ed25519_epita
-          ssh-agent bash -c "ssh-add /c/Users/anton/.ssh/id_ed25519_epita &> /dev/null; git push --set-upstream origin ; git push --set-upstream upstream --force"
+          ssh-agent bash -c "ssh-add /c/Users/anton/.ssh/id_ed25519_epita &> /dev/null; git push origin ; git push upstream --force"
 
       - name: Create PR on upstream
         env:
