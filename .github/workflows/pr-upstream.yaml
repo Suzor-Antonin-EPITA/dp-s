@@ -1,0 +1,55 @@
+name: Create PR to Upstream
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork repo
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync with upstream
+        run: |
+          git remote add upstream https://github.com/theo-henon/demperm-social.git
+          git fetch upstream main
+          git merge upstream/main
+
+      - name: Run tests
+        run: echo "This is a placeholder"
+
+      - name: Push changes to a new branch on upstream
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF##*/}"
+          BRANCH_NAME="release-${TAG_NAME}"
+
+          # Create a new branch locally
+          git checkout main
+          git checkout -b $BRANCH_NAME
+
+          # Force push to upstream fork branch
+          git push https://x-access-token:${GH_TOKEN}@github.com/theo-henon/demperm-social.git $BRANCH_NAME
+
+      - name: Create PR on upstream
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF##*/}"
+          BRANCH_NAME="release-${TAG_NAME}"
+          gh pr create \
+            --repo theo-henon/demperm-social \
+            --head $BRANCH_NAME \
+            --base tttt \
+            --title "Release $TAG_NAME" \
+            --body "This PR syncs the latest forked \`main\` branch for release $TAG_NAME."
