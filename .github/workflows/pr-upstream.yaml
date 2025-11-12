@@ -39,8 +39,7 @@ jobs:
           TAG_NAME="${GITHUB_REF##*/}"
           BRANCH_NAME="release-${TAG_NAME}"
           # Create a new branch locally
-          git checkout main
-          git checkout -b $BRANCH_NAME
+          git switch -c $BRANCH_NAME
           # Force push to upstream fork branch
           git push https://x-access-token:${GH_TOKEN}@github.com/theo-henon/demperm-social.git $BRANCH_NAME
 
