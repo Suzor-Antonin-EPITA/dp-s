@@ -43,7 +43,7 @@ jobs:
           # Create a new branch locally
           git switch -c $BRANCH_NAME
           # Force push to upstream fork branch
-          git push https://x-access-token:${GH_TOKEN}@github.com/theo-henon/demperm-social.git $BRANCH_NAME
+          git push https://x-access-token:${GH_TOKEN}@github.com/theo-henon/demperm-social.git $BRANCH_NAME --force
 
       - name: Create PR on upstream
         env:
