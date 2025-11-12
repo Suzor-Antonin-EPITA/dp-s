@@ -8,55 +8,100 @@ on:
 jobs:
   create-pr:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Checkout fork repo
+      - name: Checkout (repo de groupe)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure git
+      - name: Vérifier que le tag pointe sur main (sécurité)
+        shell: bash
         run: |
-          git config --global user.name "Suzor-Antonin-EPITA"
-          git config --global user.email "antonin.suzor@epita.fr"
-          git config --global push.autoSetupRemote true
+          TAG_SHA="${GITHUB_SHA}"
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
+          if ! git merge-base --is-ancestor "$TAG_SHA" "origin/main"; then
+            echo "Le tag ${GITHUB_REF_NAME} ne pointe pas sur un commit contenu dans origin/main -> on stoppe proprement."
+            echo "still_ok=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-      - name: Sync fork with upstream
+      - name: Installer deps
         run: |
-          git remote add upstream https://github.com/theo-henon/demperm-social.git
-          git fetch upstream main
-          git checkout origin/main
-          git merge upstream/main --allow-unrelated-histories -m "Sync fork with upstream"
-          git push origin main || true
+          sudo apt-get update -y
+          sudo apt-get install -y rsync
 
-      - name: Run tests
-        run: echo "This is a placeholder"
-
-      - name: Push changes to a new branch on upstream
-        run: |
-          TAG_NAME="${GITHUB_REF##*/}"
-          BRANCH_NAME="release-${TAG_NAME}"
-          # Create a new branch locally
-          git switch -c $BRANCH_NAME
-          # Force push to upstream fork branch
-          git config --global user.name "Suzor-Antonin-EPITA"
-          git config --global user.email "antonin.suzor@epita.fr"
-          git config --global push.autoSetupRemote true
-          echo {{ secrets.ID_ED25519_EPITA }} > id_ed25519_epita
-          ssh-agent bash -c "ssh-add id_ed25519_epita &> /dev/null; git push origin ; git push upstream --force"
-
-      - name: Create PR on upstream
+      - name: Cloner le repo principal
         env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
+            MAIN_REPO_OWNER: theo-henon
+            MAIN_REPO_NAME: demperm-social
+            MAIN_REPO_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
         run: |
-          TAG_NAME="${GITHUB_REF##*/}"
-          BRANCH_NAME="release-${TAG_NAME}"
-          gh pr create \
-            --repo theo-henon/demperm-social \
-            --head $BRANCH_NAME \
-            --base tttt \
-            --title "Release $TAG_NAME" \
-            --body "This PR syncs the latest forked \`main\` branch for release $TAG_NAME."
+            set -e
+            AUTH_URL="https://${MAIN_REPO_TOKEN}@github.com/${MAIN_REPO_OWNER}/${MAIN_REPO_NAME}.git"
+            git clone "$AUTH_URL" main-repo
+
+      - name: Créer branche de sync + copier fichiers
+        env:
+          MAIN_REPO_DEFAULT_BRANCH: main
+        run: |
+          set -e
+          BRANCH="chore/ios-sync-${GITHUB_REF_NAME}"
+          cd main-repo
+          git fetch origin "$MAIN_REPO_DEFAULT_BRANCH"
+          git checkout -B "$BRANCH" "origin/${MAIN_REPO_DEFAULT_BRANCH}"
+
+          mkdir -p docs/client/ios src/client/ios
+
+          # Copie avec reset des deletions pour rester miroir
+          rsync -a --delete ../docs/serveur/social/ ./docs/serveur/social/ || true
+          rsync -a --delete ../src/serveur/social/  ./src/serveur/social/  || true
+          rsync -a --delete ../.github/workflows/  ./.github/workflows/  || true
+
+          if git status --porcelain | grep -q .; then
+            git add docs/serveur/social src/serveur/social .github/workflows
+            git config user.name "Suzor-Antonin-EPITA"
+            git config user.email "antonin.suzor@epita.fr"
+            git commit -m "chore(social): sync ${GITHUB_REF_NAME}"
+          else
+            echo "Aucun changement → on arrête proprement."
+            exit 0
+          fi
+
+      - name: Push branche
+        env:
+          MAIN_REPO_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
+        run: |
+          set -e
+          cd main-repo
+          git push -u origin HEAD
+
+      - name: Créer la Pull Request
+        env:
+          MAIN_REPO_OWNER: theo-henon
+          MAIN_REPO_NAME:  demperm-social
+          MAIN_REPO_DEFAULT_BRANCH: main
+          MAIN_REPO_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
+        run: |
+          set -e
+          cd main-repo
+          SRC_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          TITLE="chore(ios): sync ${GITHUB_REF_NAME}"
+          BODY="$(printf 'Synchronisation serveur social depuis le repo de groupe.\n\n- Tag : `%s`\n- Commit : `%s`\n\nCette PR met à jour:\n- `docs/serveur/social`\n- `src/serveur/social`\n' "$GITHUB_REF_NAME" "$GITHUB_SHA")"
+
+          # Création via GitHub API (curl)
+          API_URL="https://api.github.com/repos/${MAIN_REPO_OWNER}/${MAIN_REPO_NAME}/pulls"
+          jq -n \
+            --arg title "$TITLE" \
+            --arg head  "$SRC_BRANCH" \
+            --arg base  "$MAIN_REPO_DEFAULT_BRANCH" \
+            --arg body  "$BODY" \
+            '{title:$title, head:$head, base:$base, body:$body, maintainer_can_modify:true}' \
+          | curl -sS -X POST "$API_URL" \
+              -H "Authorization: Bearer ${MAIN_REPO_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -d @- \
+          | tee /tmp/pr.json
+
+          echo "PR créée:"
+          cat /tmp/pr.json | jq -r '.html_url // "—"'
