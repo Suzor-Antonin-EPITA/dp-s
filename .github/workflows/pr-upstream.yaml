@@ -46,12 +46,12 @@ jobs:
           MAIN_REPO_DEFAULT_BRANCH: main
         run: |
           set -e
-          BRANCH="chore/ios-sync-${GITHUB_REF_NAME}"
+          BRANCH="chore/serv-social-${GITHUB_REF_NAME}"
           cd main-repo
           git fetch origin "$MAIN_REPO_DEFAULT_BRANCH"
           git checkout -B "$BRANCH" "origin/${MAIN_REPO_DEFAULT_BRANCH}"
 
-          mkdir -p docs/client/ios src/client/ios
+          mkdir -p docs/serveur/social src/serveur/social .github/workflows
 
           # Copie avec reset des deletions pour rester miroir
           rsync -a --delete ../docs/serveur/social/ ./docs/serveur/social/ || true
@@ -86,7 +86,7 @@ jobs:
           set -e
           cd main-repo
           SRC_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-          TITLE="chore(ios): sync ${GITHUB_REF_NAME}"
+          TITLE="chore(serv-social): sync ${GITHUB_REF_NAME}"
           BODY="$(printf 'Synchronisation serveur social depuis le repo de groupe.\n\n- Tag : `%s`\n- Commit : `%s`\n\nCette PR met à jour:\n- `docs/serveur/social`\n- `src/serveur/social`\n' "$GITHUB_REF_NAME" "$GITHUB_SHA")"
 
           # Création via GitHub API (curl)
